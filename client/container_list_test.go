@@ -21,6 +21,31 @@ func TestContainerListError(t *testing.T) {
 	assert.Check(t, is.ErrorType(err, cerrdefs.IsInternal))
 }
 
+func TestContainerListLatest(t *testing.T) {
+	client, err := New(
+		WithMockClient(func(req *http.Request) (*http.Response, error) {
+			if err := assertRequest(req, http.MethodGet, "/containers/json"); err != nil {
+				return nil, err
+			}
+			query := req.URL.Query()
+			limit := query.Get("limit")
+			if limit != "1" {
+				return nil, fmt.Errorf("limit not set properly for Latest option. Expected '1', got %s", limit)
+			}
+			return mockJSONResponse(http.StatusOK, nil, []container.Summary{
+				{ID: "latest_container"},
+			})(req)
+		}),
+	)
+	assert.NilError(t, err)
+
+	list, err := client.ContainerList(t.Context(), ContainerListOptions{
+		Latest: true,
+	})
+	assert.NilError(t, err)
+	assert.Check(t, is.Len(list.Items, 1))
+}
+
 func TestContainerList(t *testing.T) {
 	const (
 		expectedURL     = "/containers/json"
